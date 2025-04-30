@@ -1,0 +1,1 @@
+# mattermost-gitea-connector
