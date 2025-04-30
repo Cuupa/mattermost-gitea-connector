@@ -1,0 +1,11 @@
+services:
+  connector:
+    image: cuupa/mattermost-gitea-connector:0.1
+    restart: unless-stopped
+    ports:
+      - 5000:5000
+    environment:
+      GIT_URL: <git-url>
+      GITEA_ACCESS_TOKEN: <token>
+      ORGANISATION: <org>
+      REPOSITORY: <repo>
