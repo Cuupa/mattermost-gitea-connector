@@ -1,0 +1,9 @@
+.venv
+Dockerfile
+README.md
+LICENSE
+compose.yaml
+build.sh
+.gitignore
+/docker
+/page
