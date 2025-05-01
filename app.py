@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, request
+from requests import Response
 
 app = Flask(__name__)
 
@@ -13,7 +14,8 @@ def get_payload(line: str) -> list:
     data = line.split('=')[1].strip()
     return data.split(' ') if ' ' in data else [data]
 
-def execute_merge(entry: str):
+def execute_merge(entry: str) -> Response:
+    print('Executing merge for ' + entry)
     url = f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls{entry}/merge&token={access_token}"
     params = {
         "Do": "merge",
@@ -21,7 +23,13 @@ def execute_merge(entry: str):
         "MergeTitleField": "string",
         "force_merge": True
     }
-    requests.post(url, params)
+    print('Calling ' + f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls{entry}/merge&token=********")
+    response = requests.post(url, params)
+    print('Received response:')
+    print(response.text)
+    print(response.reason)
+    return response
+
 
 
 @app.route('/', methods=['GET'])
@@ -29,19 +37,20 @@ def get():
     return '', 200
 
 
-@app.route('/', methods=['POST'])
+@app.route('/merge', methods=['POST'])
 def listen():
     data = request.data.decode('utf-8')
-
+    print('Received payload for merge:')
+    print(data)
     if 'text=' not in data:
         return '', 400
 
-    lines = data.split('\n')
-    for line in lines:
+    for line in data.split('\n'):
         if 'text=' in line:
-            payload = get_payload(line)
-            for entry in payload:
+            for entry in get_payload(line):
                 execute_merge(entry)
+        else:
+            print('No data found')
 
     return '', 200
 
@@ -62,6 +71,13 @@ def do_checks():
             print(line)
         exit()
 
+def sanitize():
+    global git_url
+    if git_url.endswith('/'):
+        git_url = git_url[:-1]
+
 if __name__ == '__main__':
+    print('Executing env checks')
     do_checks()
+    sanitize()
     app.run(debug=False, port=5000)
