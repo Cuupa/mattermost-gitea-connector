@@ -4,6 +4,11 @@ services:
     restart: unless-stopped
     ports:
       - 5000:5000
+    healthcheck:
+      test: curl -f http://localhost:5000/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 3
     environment:
       GIT_URL: <git-url>
       GITEA_ACCESS_TOKEN: <token>
