@@ -1,35 +1,48 @@
+import sys
 import os
+import json
 import requests
+import logging
 from flask import Flask, request
 from requests import Response
 
 app = Flask(__name__)
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 access_token = os.getenv('GITEA_ACCESS_TOKEN')
 org_name = os.getenv('ORGANISATION')
 repo_name = os.getenv('REPOSITORY')
 git_url = os.getenv('GIT_URL')
 
-def get_payload(line: str) -> list:
-    data = line.split('=')[1].strip()
+
+def get_payload(data: str) -> list:
     return data.split(' ') if ' ' in data else [data]
 
-def execute_merge(entry: str) -> Response:
-    print('Executing merge for ' + entry)
-    url = f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls{entry}/merge&token={access_token}"
-    params = {
+
+def execute_merge(entry: str, user: str) -> Response:
+    logger.info('Executing merge for ' + entry)
+    url = f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls/{entry}/merge?token={access_token}"
+    data = {
         "Do": "merge",
-        "MergeMessageField": "string",
-        "MergeTitleField": "string",
+        "MergeMessageField": f"Merged by {user} via mattermost",
+        "MergeTitleField": "Merged pull request",
         "force_merge": True
     }
-    print('Calling ' + f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls{entry}/merge&token=********")
-    response = requests.post(url, params)
-    print('Received response:')
-    print(response.text)
-    print(response.reason)
+    headers = {'Content-Type': 'application/json', 'accept': 'application/json'}
+    logger.info('Calling ' + f"{git_url}/api/v1/repos/{org_name}/{repo_name}/pulls{entry}/merge&token=********")
+    response = requests.post(url, data=json.dumps(data), headers=headers)
+    logger.info('Received response:')
+    logger.info(response.text)
+    logger.info(response.reason)
     return response
-
 
 
 @app.route('/', methods=['GET'])
@@ -39,20 +52,17 @@ def get():
 
 @app.route('/merge', methods=['POST'])
 def listen():
-    data = request.data.decode('utf-8')
-    print('Received payload for merge:')
-    print(data)
-    if 'text=' not in data:
+    data = request.form
+    logger.info('Received payload for merge:')
+    logger.info(data)
+    if 'text' not in data:
         return '', 400
 
-    for line in data.split('\n'):
-        if 'text=' in line:
-            for entry in get_payload(line):
-                execute_merge(entry)
-        else:
-            print('No data found')
+    for entry in get_payload(data.get('text')):
+        execute_merge(entry, data.get('user_name'))
 
     return '', 200
+
 
 def do_checks():
     message = []
@@ -68,16 +78,18 @@ def do_checks():
 
     if len(message) > 0:
         for line in message:
-            print(line)
+            logger.info(line)
         exit()
+
 
 def sanitize():
     global git_url
     if git_url.endswith('/'):
         git_url = git_url[:-1]
 
+
 if __name__ == '__main__':
-    print('Executing env checks')
+    logger.info('Executing env checks')
     do_checks()
     sanitize()
-    app.run(debug=False, port=5000)
+    app.run(host='0.0.0.0')
