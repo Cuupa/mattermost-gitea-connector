@@ -1,7 +1,6 @@
 FROM python:slim-bookworm
 MAINTAINER Cuupa
 
-RUN mkdir /app
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
